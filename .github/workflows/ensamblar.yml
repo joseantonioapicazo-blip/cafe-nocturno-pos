@@ -1,24 +1,20 @@
-name: ensamblar app.js
+name: correccion final
 on:
   push:
     branches: [main]
 permissions:
   contents: write
 jobs:
-  unir:
+  corregir:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unir piezas
+      - name: Corregir y limpiar
         run: |
-          if [ ! -f js/app.part1 ] || [ ! -f js/app.part2 ]; then
-            echo "Faltan piezas; nada que hacer."
-            exit 0
-          fi
-          cat js/app.part1 js/app.part2 > js/app.js
-          rm -f js/app.part1 js/app.part2
+          sed -i 's/¿Eliminar este bebida?/¿Eliminar esta bebida?/' js/app.js
+          rm -f .github/workflows/ensamblar.yml
           git config user.name "cafe-nocturno-bot"
           git config user.email "cafe-nocturno-bot@users.noreply.github.com"
           git add -A
-          git commit -m "Ensambla js/app.js a partir de sus piezas" || exit 0
+          git commit -m "Corrige concordancia del mensaje al eliminar una bebida" || exit 0
           git push
