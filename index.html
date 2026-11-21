@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Café Nocturno · Punto de venta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css?v=7">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23191512'/%3E%3Cpath d='M8 12h14v6a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5z' fill='%23e8b06a'/%3E%3Cpath d='M22 14h2a3 3 0 0 1 0 6h-2' fill='none' stroke='%23e8b06a' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+  <div class="shell">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><path d="M9 14h18v10a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M27 17h3a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M15 9c0-2 2-2 2-4M21 9c0-2 2-2 2-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".65"/></svg>
+        </span>
+        <div class="brand-text">
+          <h1>Café Nocturno</h1>
+          <p>Tostaduría y barra de café</p>
+        </div>
+      </div>
+
+      <nav class="tabs" id="tabs" aria-label="Secciones">
+        <button class="tab is-active" data-view="venta">Venta</button>
+        <button class="tab" data-view="corte">Corte de caja</button>
+        <button class="tab" data-view="historial">Historial</button>
+        <button class="tab" data-view="inventario">Inventario</button>
+        <button class="tab" data-view="recetas">Recetas</button>
+        <button class="tab" data-view="ingredientes">Ingredientes</button>
+        <button class="tab" data-view="vasos">Vasos</button>
+        <button class="tab" data-view="usuarios">Usuarios</button>
+      </nav>
+
+      <div class="topbar-right">
+        <div class="clock">
+          <strong id="clock-time">--:--</strong>
+          <span id="clock-date">Cargando…</span>
+        </div>
+        <div class="cashier" id="user-chip">
+          <span class="avatar" id="cashier-avatar">MO</span>
+          <span class="cashier-text">
+            <b id="cashier-name">Mariana Ortega</b>
+            <small id="cashier-register">Caja 01</small>
+          </span>
+          <button class="btn btn-ghost btn-sm" id="logout-btn" title="Cerrar sesión">Salir</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- ================= VENTA ================= -->
+      <section class="view is-active" id="view-venta">
+        <div class="pos">
+          <div class="menu">
+            <div class="menu-head">
+              <label class="search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+                <input id="search" type="search" placeholder="Buscar en el menú…" autocomplete="off" aria-label="Buscar productos">
+              </label>
+              <div class="chips" id="cats" role="tablist" aria-label="Categorías"></div>
+              <div class="comanda-bar">
+                <span class="comanda-label">Comanda rápida</span>
+                <input id="comanda-input" type="text" placeholder="ej. Cap-D-CR+Sh" autocomplete="off" aria-label="Comanda rápida">
+                <button class="btn btn-sm btn-primary" id="comanda-add" onclick="window.__addComanda(document.getElementById('comanda-input').value)">Agregar</button>
+                <button class="btn btn-ghost btn-sm" id="comanda-help" onclick="window.__comandaHelp()" title="Ver códigos">?</button>
+              </div>
+            </div>
+            <div class="grid-wrap">
+              <div class="product-grid" id="products"></div>
+              <p class="empty-note" id="no-results" hidden>No encontramos productos con ese nombre.</p>
+            </div>
+          </div>
+
+          <aside class="cart" id="cart">
+            <header class="cart-head">
+              <div>
+                <span class="eyebrow">Ticket</span>
+                <h2 id="cart-folio">#0001</h2>
+              </div>
+              <button class="btn btn-ghost btn-sm" id="clear-cart" title="Vaciar ticket">Vaciar</button>
+            </header>
+            <div class="cart-items" id="cart-items"></div>
+            <footer class="cart-foot">
+              <div class="totals">
+                <div class="total-row"><span>Subtotal</span><span id="sum-subtotal">$0</span></div>
+                <div class="total-row muted"><span>IVA incluido (16 %)</span><span id="sum-tax">$0</span></div>
+                <div class="total-row"><span>Artículos</span><span id="sum-count">0</span></div>
+                <div class="total-row grand"><span>Total</span><span id="sum-total">$0</span></div>
+              </div>
+              <button class="btn btn-primary btn-block" id="checkout" disabled>
+                <span>Cobrar</span>
+                <span id="checkout-amount">$0</span>
+              </button>
+            </footer>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ================= CORTE ================= -->
+      <section class="view" id="view-corte"></section>
+
+      <!-- ================= HISTORIAL ================= -->
+      <section class="view" id="view-historial"></section>
+
+      <!-- ================= INVENTARIO ================= -->
+      <section class="view" id="view-inventario"></section>
+
+      <!-- ================= RECETAS ================= -->
+      <section class="view" id="view-recetas"></section>
+
+      <!-- ================= INGREDIENTES ================= -->
+      <section class="view" id="view-ingredientes"></section>
+
+      <!-- ================= VASOS ================= -->
+      <section class="view" id="view-vasos"></section>
+
+      <!-- ================= USUARIOS ================= -->
+      <section class="view" id="view-usuarios"></section>
+
+    </main>
+  </div>
+
+  <div class="modal-root" id="modal-root" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-card" id="modal-card" role="dialog" aria-modal="true" aria-label="Detalle"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ================= LOGIN ================= -->
+  <div class="login-overlay" id="login-overlay" hidden>
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40"><path d="M9 14h18v10a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M27 17h3a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M15 9c0-2 2-2 2-4M21 9c0-2 2-2 2-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".65"/></svg>
+        </span>
+        <div>
+          <h1>Café Nocturno</h1>
+          <p>Inicia sesión para continuar</p>
+        </div>
+      </div>
+      <form id="login-form" class="login-form" autocomplete="off">
+        <label class="field">
+          <span>Usuario</span>
+          <input id="login-user" type="text" autocomplete="username" required autofocus>
+        </label>
+        <label class="field">
+          <span>Contraseña</span>
+          <input id="login-pass" type="password" autocomplete="current-password" required>
+        </label>
+        <p class="login-error" id="login-error" hidden>Usuario o contraseña incorrectos.</p>
+        <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+      </form>
+      <p class="login-hint">Usuarios de prueba: <b>admin</b>, <b>gerente</b>, <b>cajero</b> (contraseña igual al usuario).</p>
+    </div>
+  </div>
+
+  <script src="js/data.js?v=6"></script>
+  <script src="js/art.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
+</body>
+</html>
