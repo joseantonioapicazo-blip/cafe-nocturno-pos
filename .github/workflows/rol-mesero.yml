@@ -1,0 +1,31 @@
+name: rol-mesero
+
+on:
+  push:
+    paths:
+      - '.github/workflows/rol-mesero.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aplicar los cambios del rol mesero en app.js
+        run: python3 tools/rol-mesero.py
+
+      - name: Commit y limpieza
+        run: |
+          H=$(git hash-object js/app.js)
+          echo "hash de app.js: $H"
+          git config user.name "Antonio Picazo"
+          git config user.email "joseantonioapicazo@gmail.com"
+          rm -f tools/rol-mesero.py
+          rmdir tools 2>/dev/null || true
+          rm -f .github/workflows/rol-mesero.yml
+          git add -A
+          git commit -m "feat: agregar el rol Mesero a usuarios y permisos" || true
+          git push
