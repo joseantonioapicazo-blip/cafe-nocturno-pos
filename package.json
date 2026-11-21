@@ -1,0 +1,14 @@
+{
+  "name": "cafe-nocturno-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Punto de venta de Café Nocturno con modo meseros por Wi-Fi. Sin dependencias: solo Node.js.",
+  "scripts": {
+    "start": "node server.js",
+    "meseros": "node server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "UNLICENSED"
+}
