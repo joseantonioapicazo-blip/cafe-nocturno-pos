@@ -1,0 +1,41 @@
+name: fix-app-param
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-app-param.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar parametro de goTo
+        run: |
+          python3 - <<'PY'
+          p = 'js/app.js'
+          s = open(p, encoding='utf-8').read()
+          old = 'goTo: function (v) { setView(v); }, '
+          old = old.strip()
+          new = 'goTo: function (view) { setView(view); }, '
+          new = new.strip()
+          assert s.count(old) == 1, 'linea no encontrada'
+          open(p, 'w', encoding='utf-8').write(s.replace(old, new, 1))
+          print('listo')
+          PY
+      - name: Publicar
+        run: |
+          git config user.name "Cafe Nocturno"
+          git config user.email "noreply@users.noreply.github.com"
+          git add js/app.js
+          git commit -m "fix(meseros): nombre del parametro de goTo" || true
+          git push
+      - name: Retirar flujo temporal
+        run: |
+          git rm -q .github/workflows/fix-app-param.yml
+          git commit -m "chore: retirar flujo temporal"
+          git push
