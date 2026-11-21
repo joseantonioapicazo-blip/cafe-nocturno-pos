@@ -119,13 +119,14 @@
 
   var USERS_KEY = 'cafe-nocturno-users-v1';
   var SESSION_KEY = 'cafe-nocturno-session-v1';
-  var ROLES = { admin: 'Administrador', gerente: 'Gerente', cajero: 'Cajero' };
+  var ROLES = { admin: 'Administrador', gerente: 'Gerente', cajero: 'Cajero', mesero: 'Mesero' };
 
   function defaultUsers() {
     return [
       { id: 'u_admin',   name: 'Mariana Ortega', username: 'admin',   password: 'admin',   role: 'admin' },
       { id: 'u_gerente', name: 'Carlos Mendoza', username: 'gerente', password: 'gerente', role: 'gerente' },
-      { id: 'u_cajero',  name: 'Lucía Ramírez',  username: 'cajero',  password: 'cajero',  role: 'cajero' }
+      { id: 'u_cajero',  name: 'Lucía Ramírez',  username: 'cajero',  password: 'cajero',  role: 'cajero' },
+      { id: 'u_mesero',  name: 'Ana Beltrán',    username: 'mesero',  password: 'mesero',  role: 'mesero' }
     ];
   }
 
@@ -159,6 +160,7 @@
     var map = {
       venta: ['admin', 'gerente', 'cajero'],
       historial: ['admin', 'gerente', 'cajero'],
+      meseros: ['admin', 'gerente', 'cajero', 'mesero'],
       voidSale: ['admin', 'gerente'],
       corte: ['admin', 'gerente'],
       inventarioView: ['admin', 'gerente'],
@@ -169,6 +171,11 @@
       recetas: ['admin']
     };
     return (map[perm] || []).indexOf(r) >= 0;
+  }
+
+  /* vista inicial según el rol: el mesero solo entra a sus comandas */
+  function homeView() {
+    return can('venta') ? 'venta' : (can('meseros') ? 'meseros' : 'venta');
   }
 
   function genUserId() { return 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -1479,7 +1486,7 @@
           '<div class="row">' +
             '<label class="field"><span>Contraseña</span><input name="password" type="password" ' + (editingUser === 'new' ? 'required' : '') + ' placeholder="' + (editingUser === 'new' ? '' : 'Dejar vacío para no cambiar') + '" value=""></label>' +
             '<label class="field"><span>Rol</span><select name="role">' +
-              ['admin','gerente','cajero'].map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + roleLabel(r) + '</option>'; }).join('') +
+              Object.keys(ROLES).map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + roleLabel(r) + '</option>'; }).join('') +
             '</select></label>' +
           '</div>' +
           '<div style="display:flex;gap:8px;margin-top:4px">' +
@@ -1491,7 +1498,7 @@
     }
 
     $('view-usuarios').innerHTML = '<div class="users-wrap">' +
-      '<div class="users-head"><div><h2>Usuarios</h2><p>Administra los accesos al sistema por rol: administrador, gerente y cajero.</p></div>' +
+      '<div class="users-head"><div><h2>Usuarios</h2><p>Administra los accesos al sistema por rol: administrador, gerente, cajero y mesero.</p></div>' +
         '<button class="btn btn-primary" data-user-new>+ Nuevo usuario</button></div>' +
       '<div class="users-grid">' + cards + '</div>' +
       (form ? '<div>' + form + '</div>' : '') +
@@ -1543,12 +1550,14 @@
   /* ---------------- vistas ---------------- */
 
   function setView(name) {
-    if (name === 'corte' && !can('corte')) name = 'venta';
-    if (name === 'inventario' && !can('inventarioView')) name = 'venta';
-    if (name === 'usuarios' && !can('usuarios')) name = 'venta';
-    if (name === 'recetas' && !can('recetas')) name = 'venta';
-    if (name === 'ingredientes' && !can('ingredientes')) name = 'venta';
-    if (name === 'vasos' && !can('recetas')) name = 'venta';
+    if (name === 'corte' && !can('corte')) name = homeView();
+    if (name === 'inventario' && !can('inventarioView')) name = homeView();
+    if (name === 'usuarios' && !can('usuarios')) name = homeView();
+    if (name === 'recetas' && !can('recetas')) name = homeView();
+    if (name === 'ingredientes' && !can('ingredientes')) name = homeView();
+    if (name === 'vasos' && !can('recetas')) name = homeView();
+    if (name === 'meseros' && !can('meseros')) name = homeView();
+    if ((name === 'venta' || name === 'historial') && !can('venta')) name = homeView();
     viewed.view = name;
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
       b.classList.toggle('is-active', b.getAttribute('data-view') === name);
@@ -1583,20 +1592,25 @@
     var initials = currentUser.name.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
     $('cashier-avatar').textContent = initials || 'U';
     // tabs visibles por rol
+    var viewPerm = {
+      venta: 'venta',
+      historial: 'historial',
+      corte: 'corte',
+      inventario: 'inventarioView',
+      usuarios: 'usuarios',
+      recetas: 'recetas',
+      ingredientes: 'ingredientes',
+      vasos: 'recetas'
+    };
     Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
       var v = b.getAttribute('data-view');
-      var show = true;
-      if (v === 'corte') show = can('corte');
-      if (v === 'inventario') show = can('inventarioView');
-      if (v === 'usuarios') show = can('usuarios');
-      if (v === 'recetas') show = can('recetas');
-      if (v === 'ingredientes') show = can('ingredientes');
-      if (v === 'vasos') show = can('recetas');
-      b.hidden = !show;
+      if (v === 'meseros') { b.hidden = !can('meseros'); return; }
+      var perm = viewPerm[v];
+      b.hidden = perm ? !can(perm) : false;
     });
-    // si la vista actual ya no está permitida, ir a venta
+    // si la vista actual ya no está permitida, ir a la que corresponda
     var active = document.querySelector('.tab.is-active');
-    if (active && active.hidden) setView('venta');
+    if (active && active.hidden) setView(homeView());
   }
 
   function doLogin(username, password) {
@@ -1606,7 +1620,7 @@
         saveSession({ userId: currentUser.id });
         applyUserUI();
         renderCart();
-        setView('venta');
+        setView(homeView());
         return true;
       }
     }
@@ -2219,6 +2233,11 @@
       return added;
     },
     goTo: function (view) { setView(view); },
+    meseroUsers: function () {
+      return users.filter(function (u) { return u.role === 'mesero'; }).map(function (u) {
+        return { id: u.id, name: u.name };
+      });
+    },
     toast: toast,
     money: money,
     checkout: function () { if (typeof openCheckout === 'function') openCheckout(); }
