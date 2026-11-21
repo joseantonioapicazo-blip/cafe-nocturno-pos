@@ -82,13 +82,8 @@
     }
 
     document.addEventListener('click', function (e) {
-      if (e.target.closest('#tab-meseros')) render();
+      if (e.target.closest('#tab-meseros')) refresh();
     });
-  }
-
-  function open() {
-    if (BRIDGE && BRIDGE.goTo) BRIDGE.goTo('meseros');
-    render();
   }
 
   /* ---------------- carga ---------------- */
@@ -106,6 +101,7 @@
       state.ordenes = res[2].ordenes || [];
       state.loading = false;
       paint();
+      syncFromUsers();
     }).catch(function (err) {
       state.available = false;
       state.loading = false;
@@ -128,6 +124,33 @@
       es.onerror = function () { /* EventSource reintenta solo */ };
       state.sse = es;
     } catch (e) { /* sin SSE: queda el sondeo */ }
+  }
+
+  /* Los usuarios de la caja con rol "Mesero" reciben su código QR
+     automáticamente al abrir esta pestaña. */
+  var syncing = false;
+
+  function syncFromUsers() {
+    if (syncing || !BRIDGE || !BRIDGE.meseroUsers) return;
+    var wanted = [];
+    try { wanted = BRIDGE.meseroUsers() || []; } catch (e) { wanted = []; }
+    if (!wanted.length) return;
+
+    var existentes = state.meseros.map(function (m) { return String(m.name).trim().toLowerCase(); });
+    var faltan = wanted.filter(function (u) {
+      return u && u.name && existentes.indexOf(String(u.name).trim().toLowerCase()) < 0;
+    });
+    if (!faltan.length) return;
+
+    syncing = true;
+    var chain = Promise.resolve();
+    faltan.forEach(function (u) {
+      chain = chain.then(function () {
+        return api('/api/meseros', { method: 'POST', body: { name: u.name } }).catch(function () {});
+      });
+    });
+    chain.then(function () { syncing = false; return refresh(); })
+      .catch(function () { syncing = false; });
   }
 
   function isVisible() {
