@@ -1,0 +1,21 @@
+name: fix once
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace and clean up
+        run: |
+          perl -pi -e 's/este bebida/esta bebida/g' js/app.js
+          grep -n "Eliminar esta bebida" js/app.js || true
+          rm -f .github/workflows/fix-once.yml
+          git config user.name "cafe-nocturno-bot"
+          git config user.email "cafe-nocturno-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Corrige concordancia del mensaje al eliminar una bebida" || exit 0
+          git push
