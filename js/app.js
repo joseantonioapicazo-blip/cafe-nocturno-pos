@@ -828,7 +828,7 @@
     adjustStock(items, -1);
     state.sales.unshift(sale);
     if (window.POSWaiterSync && window.POSWaiterSync.onSale) {
-      try { window.POSWaiterSync.onSale(sale); } catch (e) { /* sin conexion de meseros */ }
+      try { window.POSWaiterSync.onSale(sale); } catch (e) { /* sin conexión de meseros */ }
     }
     state.folio = state.folio + 1;
     state.cart = [];
@@ -2201,28 +2201,28 @@
 
   /* ---------------- puente para meseros (LAN) ---------------- */
 
-window.POSBridge = {
-  addItems: function (items) {
-    var added = 0;
-    (items || []).forEach(function (it) {
-      var p = productById(it.pid);
-      if (!p) return;
-      addToCart(p, {
-        size: it.size || 'M',
-        milk: it.milk || 'leche',
-        extras: Array.isArray(it.extras) ? it.extras : [],
-        qty: Math.max(1, Number(it.qty) || 1)
+  window.POSBridge = {
+    addItems: function (items) {
+      var added = 0;
+      (items || []).forEach(function (it) {
+        var p = productById(it.pid);
+        if (!p) return;
+        addToCart(p, {
+          size: it.size || 'M',
+          milk: it.milk || 'leche',
+          extras: Array.isArray(it.extras) ? it.extras : [],
+          qty: Math.max(1, Number(it.qty) || 1)
+        });
+        added += 1;
       });
-      added += 1;
-    });
-    renderCart();
-    return added;
-  },
-  goTo: function (v) { setView(v); },
-  toast: toast,
-  money: money,
-  checkout: function () { if (typeof openCheckout === 'function') openCheckout(); }
-};
+      renderCart();
+      return added;
+    },
+    goTo: function (v) { setView(v); },
+    toast: toast,
+    money: money,
+    checkout: function () { if (typeof openCheckout === 'function') openCheckout(); }
+  };
 
   /* ---------------- init ---------------- */
 
