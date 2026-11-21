@@ -4,22 +4,18 @@ Punto de venta para cafetería con **modo meseros por Wi-Fi**. La caja trabaja e
 
 ---
 
-## Encender el servidor (3 pasos)
+## Encender el servidor (automático)
 
 **1. Descarga el proyecto**
 
 Botón verde **Code → Download ZIP** y descomprímelo (o `git clone` si usas Git).
 
-**2. Instala Node.js (solo la primera vez)**
+**2. Haz doble clic en el iniciador**
 
-Entra a <https://nodejs.org> y pulsa el botón verde **LTS**. En el instalador dale *Siguiente* a todo hasta *Finalizar*.
+- **Windows:** `iniciar-servidor.bat`
+- **Mac:** `iniciar-servidor.command` (si no abre: clic derecho → *Abrir*, o en la Terminal `chmod +x iniciar-servidor.command`)
 
-**3. Abre el iniciador**
-
-- **Windows:** doble clic en **`iniciar-servidor.bat`**
-- **Mac:** doble clic en **`iniciar-servidor.command`** (si no abre: clic derecho → *Abrir*, o en la Terminal `chmod +x iniciar-servidor.command`)
-
-Se abre el navegador con el punto de venta y la ventana del servidor muestra la dirección que deben abrir los teléfonos, por ejemplo:
+Eso es todo. El iniciador busca Node.js solo, arranca el servidor, **elige un puerto libre** (no importa si el 3000 está ocupado) y **abre el navegador solo** con el punto de venta. La ventana del servidor muestra la dirección que deben abrir los teléfonos, por ejemplo:
 
 ```
 http://192.168.1.25:3000
@@ -27,12 +23,16 @@ http://192.168.1.25:3000
 
 Deja esa ventana abierta mientras trabajas. Para apagarlo, ciérrala o presiona `Ctrl + C`.
 
+> Solo la primera vez hace falta instalar Node.js (<https://nodejs.org>, botón verde LTS); si falta, el iniciador abre esa página por ti.
+>
 > Si prefieres la terminal, también sirve cualquiera de estas dos, dentro de la carpeta del proyecto:
 >
 > ```bash
 > npm start
 > node server.js
 > ```
+>
+> Para que no se abra el navegador (por ejemplo en un servidor sin pantalla): `NO_OPEN=1 node server.js`.
 
 ---
 
@@ -50,7 +50,7 @@ Un usuario con rol **Mesero** en Usuarios también aparece automáticamente en l
 
 | Qué | Cómo |
 | --- | --- |
-| Puerto (por omisión 3000) | `PORT=3001 npm start` en Mac/Linux · `set PORT=3001 && npm start` en Windows |
+| Puerto | Se elige solo: si el 3000 está ocupado, prueba el 3001, 3002… Para fijar uno: `PORT=3001 npm start` en Mac/Linux · `set PORT=3001 && npm start` en Windows |
 | Dónde se guardan los datos | `.data/meseros.json` dentro de la carpeta del proyecto (no se sube a GitHub) |
 | Reiniciar meseros y órdenes | Borra el archivo `.data/meseros.json` con el servidor apagado |
 | Internet / GitHub Pages | Sin servidor, la app abre en **modo demostración**: solo en esa computadora y sin meseros |
@@ -59,7 +59,7 @@ Un usuario con rol **Mesero** en Usuarios también aparece automáticamente en l
 
 ## Si algo no funciona
 
-- **“No encontramos Node.js”** → instala Node.js desde <https://nodejs.org> y vuelve a abrir el iniciador.
+- **“No encontramos Node.js”** → el iniciador abre <https://nodejs.org>; instala la versión LTS y vuelve a abrir el iniciador.
 - **El teléfono no abre la dirección** → revisa que esté en la misma red Wi-Fi y que el firewall de Windows permita Node.js en redes privadas (pulsa *Permitir acceso*).
-- **“El puerto 3000 ya está ocupado”** → cierra la otra app o inicia con otro puerto (ver tabla de ajustes).
+- **El navegador no se abrió** → abre a mano la dirección que muestra la ventana del servidor (por ejemplo `http://localhost:3000`).
 - **El doble clic no hace nada** → abre una terminal en la carpeta del proyecto y ejecuta `node server.js`.
