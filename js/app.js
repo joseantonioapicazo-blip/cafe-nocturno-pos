@@ -2218,7 +2218,7 @@
       renderCart();
       return added;
     },
-    goTo: function (v) { setView(v); },
+    goTo: function (view) { setView(view); },
     toast: toast,
     money: money,
     checkout: function () { if (typeof openCheckout === 'function') openCheckout(); }
