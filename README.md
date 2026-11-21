@@ -46,6 +46,21 @@ Un usuario con rol **Mesero** en Usuarios también aparece automáticamente en l
 
 ---
 
+## Versión en línea (funciona desde cualquier lugar)
+
+Además de la versión local, el punto de venta está publicado en internet con su propio servidor y base de datos:
+
+**<https://cafe-nocturno-pos-0mkvkd.freebuff.site>**
+
+Ahí trabaja todo igual: la caja, el historial, los meseros y sus QR. La diferencia es que los teléfonos **no necesitan estar en el Wi-Fi del local**: cada mesero entra con su código desde datos móviles o desde donde esté, y la orden llega a la caja en pocos segundos.
+
+- Los QR de la pestaña **Meseros** de esa dirección apuntan también a internet; imprímelos desde ahí para que sirvan en cualquier lugar.
+- Los datos en línea se guardan aparte de los de tu computadora: son dos sistemas independientes que se parecen.
+- Si se cae el internet del local, sigues teniendo la versión local con `iniciar-servidor`.
+- El código de esta versión se guarda en el proyecto de Freebuff, en la carpeta `online/` (`worker.js` + `manifest.json`); `online/public/` es la copia de la app que se sube al servidor.
+
+---
+
 ## Dirección fija para los teléfonos (recomendado)
 
 El servidor ya muestra su dirección solo, pero el router puede cambiársela de un día a otro y entonces los códigos QR viejos dejan de abrir. Para que la dirección **nunca cambie**, fija la IP de la computadora de la caja en tu red. Elige una y anótala, por ejemplo `192.168.1.50`.
