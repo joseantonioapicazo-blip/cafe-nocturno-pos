@@ -1810,7 +1810,7 @@
     if (pd) {
       if (!can('recetas')) return;
       var pid = pd.getAttribute('data-prod-del');
-      if (!window.confirm('¿Eliminar este bebida?')) return;
+      if (!window.confirm('¿Eliminar esta bebida?')) return;
       state.products = allProducts().filter(function (p) { return p.id !== pid; });
       save(); renderRecetas(); renderChips(); renderProducts();
       toast('Bebida eliminada');
