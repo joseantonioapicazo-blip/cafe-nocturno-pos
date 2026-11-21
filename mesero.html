@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0908">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Meseros · Café Nocturno</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23191512'/%3E%3Cpath d='M8 12h14v6a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5z' fill='%23e8b06a'/%3E%3Cpath d='M22 14h2a3 3 0 0 1 0 6h-2' fill='none' stroke='%23e8b06a' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/css/mesero.css?v=1">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="head">
+    <div class="who">
+      <span class="avatar" id="me-avatar">?</span>
+      <div class="who-text">
+        <strong id="me-name">Conectando…</strong>
+        <small id="me-code">Código personal</small>
+      </div>
+    </div>
+    <button class="ghost" id="orders-btn" type="button">
+      Mis órdenes
+      <span class="pill" id="orders-count" hidden>0</span>
+    </button>
+  </header>
+
+  <div class="bar">
+    <label class="mesa">
+      <span>Mesa</span>
+      <input id="mesa" type="text" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="—" aria-label="Número de mesa">
+    </label>
+    <span class="conn" id="conn"><i></i><span id="conn-text">En línea</span></span>
+  </div>
+
+  <nav class="cats" id="cats" aria-label="Categorías"></nav>
+
+  <main class="grid" id="products" aria-label="Menú"></main>
+
+  <div class="cartbar" id="cartbar" hidden>
+    <button type="button" id="open-cart">
+      <span class="cartbar-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 8h14l-1.2 12H6.2L5 8z" stroke-linejoin="round"/><path d="M9 8V6.4A3 3 0 0 1 12 3.4a3 3 0 0 1 3 3V8" stroke-linecap="round"/></svg>
+      </span>
+      <span class="cartbar-text"><b id="cart-count">0</b> <span id="cart-label">artículos</span> · <span id="cart-total">$0</span></span>
+      <span class="cartbar-go">Ver orden</span>
+    </button>
+  </div>
+
+</div>
+
+<div class="sheet-root" id="sheet-root" hidden>
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="gate" id="gate" hidden>
+  <div class="gate-card">
+    <span class="gate-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40"><path d="M9 14h18v10a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M27 17h3a4 4 0 0 1 0 8h-3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </span>
+    <h1 id="gate-title">Código de mesero</h1>
+    <p id="gate-text">Escanea el QR que te entregó la caja o escribe tu código personal.</p>
+    <form id="gate-form" autocomplete="off">
+      <input id="gate-input" type="text" placeholder="Ej. K7P2QX" maxlength="8" autocapitalize="characters" spellcheck="false" aria-label="Código personal">
+      <button class="primary" type="submit">Entrar</button>
+    </form>
+    <p class="gate-error" id="gate-error" hidden></p>
+    <p class="gate-hint" id="gate-hint">Tu código no cambia: puedes guardar esta página en la pantalla de inicio.</p>
+  </div>
+</div>
+
+<script src="/js/data.js?v=1"></script>
+<script src="/js/art.js?v=1"></script>
+<script src="/js/mesero.js?v=1"></script>
+</body>
+</html>
