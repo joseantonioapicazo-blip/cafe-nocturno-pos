@@ -1,0 +1,14 @@
+pwd: /home/runner/work/cafe-nocturno-pos/cafe-nocturno-pos
+python: Python 3.14.4
+total 16
+drwxr-xr-x 2 runner runner 4096 Nov 21 04:45 .
+drwxr-xr-x 7 runner runner 4096 Nov 21 04:45 ..
+-rw-r--r-- 1 runner runner 5077 Nov 21 04:45 rol-mesero.py
+python responde
+Traceback (most recent call last):
+  File "/home/runner/work/cafe-nocturno-pos/cafe-nocturno-pos/tools/rol-mesero.py", line 110, in <module>
+    assert n == 1, 'cambio %d: encontrado %d veces' % (i, n)
+           ^^^^^^
+AssertionError: cambio 10: encontrado 0 veces
+rc=1
+hash: 6d0cfbc001b4de6c82727d2076937d032907d6fb
