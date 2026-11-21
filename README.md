@@ -46,6 +46,29 @@ Un usuario con rol **Mesero** en Usuarios también aparece automáticamente en l
 
 ---
 
+## Dirección fija para los teléfonos (recomendado)
+
+El servidor ya muestra su dirección solo, pero el router puede cambiársela de un día a otro y entonces los códigos QR viejos dejan de abrir. Para que la dirección **nunca cambie**, fija la IP de la computadora de la caja en tu red. Elige una y anótala, por ejemplo `192.168.1.50`.
+
+**Opción A · En el router (lo más estable)**
+
+1. Entra a la página del router desde el navegador (suele ser `192.168.1.1` o `192.168.0.1`; usuario y contraseña están en la etiqueta del aparato).
+2. Busca *DHCP* → *Reservas de IP* o *Static DHCP*.
+3. Elige la computadora de la caja y asígnale siempre la misma IP (`192.168.1.50`). Guarda.
+
+**Opción B · En la computadora (Windows)**
+
+1. *Configuración* → *Red e Internet* → *Wi-Fi* (o *Ethernet*) → *Propiedades* del adaptador.
+2. *Asignación de IP* → *Manual* → *IPv4*.
+3. IP: `192.168.1.50` · Máscara: `255.255.255.0` · Puerta de enlace: la del router (`192.168.1.1`) · DNS: `8.8.8.8`.
+4. Guarda y vuelve a encender el servidor: la ventana mostrará `http://192.168.1.50:3000`.
+
+Vuelve a entrar a la pestaña **Meseros** y los QR nuevos ya apuntan a esa dirección para siempre.
+
+> La dirección `192.168.x.x` solo existe dentro de tu red: sirve para los teléfonos conectados a tu Wi-Fi, no desde otra ciudad. Para usarlo desde fuera hace falta un túnel de internet (por ejemplo Cloudflare Tunnel o Tailscale) o contratar una IP pública fija con tu proveedor de internet; eso no se configura desde el proyecto.
+
+---
+
 ## Ajustes
 
 | Qué | Cómo |
@@ -53,6 +76,7 @@ Un usuario con rol **Mesero** en Usuarios también aparece automáticamente en l
 | Puerto | Se elige solo: si el 3000 está ocupado, prueba el 3001, 3002… Para fijar uno: `PORT=3001 npm start` en Mac/Linux · `set PORT=3001 && npm start` en Windows |
 | Dónde se guardan los datos | `.data/meseros.json` dentro de la carpeta del proyecto (no se sube a GitHub) |
 | Reiniciar meseros y órdenes | Borra el archivo `.data/meseros.json` con el servidor apagado |
+| Dirección fija de la caja | Reserva la IP en el router o fíjala en Windows (ver arriba); los QR dejarán de cambiar |
 | Internet / GitHub Pages | Sin servidor, la app abre en **modo demostración**: solo en esa computadora y sin meseros |
 
 ---
