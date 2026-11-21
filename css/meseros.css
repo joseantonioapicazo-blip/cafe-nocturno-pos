@@ -320,3 +320,6 @@
   .topbar { gap: 16px; }
   .tabs { gap: 3px; }
 }
+
+/* rol Mesero en la pantalla de Usuarios */
+.uc-role.mesero { color: var(--warn); border-color: rgba(226, 180, 92, .35); background: rgba(226, 180, 92, .08); }
