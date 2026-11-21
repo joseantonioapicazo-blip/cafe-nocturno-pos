@@ -17,9 +17,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const ROOT = __dirname;
-const PORT = Number(process.env.PORT) || 3000;
+const START_PORT = Number(process.env.PORT) || 3000;
+let PORT = START_PORT;
+const PORT_TRIES = 20;
+let triesLeft = PORT_TRIES;
+const OPEN_BROWSER = process.env.NO_OPEN !== '1' && process.argv.indexOf('--no-open') < 0;
 const DATA_DIR = path.join(ROOT, '.data');
 const STATE_FILE = path.join(DATA_DIR, 'meseros.json');
 const STATUSES = ['nueva', 'en_caja', 'cobrada', 'cancelada'];
@@ -129,6 +134,19 @@ function baseUrls() {
   const ips = lanAddresses().map(function (n) { return n.address; });
   if (!ips.length) ips.push('127.0.0.1');
   return ips.map(function (ip) { return 'http://' + ip + ':' + PORT; });
+}
+
+/* Abre el navegador solo, sin pedir configuración. */
+function openBrowser(url) {
+  if (!OPEN_BROWSER) return;
+  const isWin = process.platform === 'win32';
+  const cmd = isWin ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const args = isWin ? ['/c', 'start', '', url] : [url];
+  try {
+    const child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true });
+    child.on('error', function () { /* sin navegador: la dirección queda en pantalla */ });
+    child.unref();
+  } catch (e) { /* igual: la dirección queda en pantalla */ }
 }
 
 function json(res, statusCode, data) {
@@ -390,25 +408,44 @@ const server = http.createServer(function (req, res) {
 
 state = loadState();
 
+function announce() {
+  const urls = baseUrls();
+  const local = 'http://localhost:' + PORT;
+  console.log('\n  Café Nocturno · modo meseros');
+  console.log('  ------------------------------------------------');
+  if (PORT !== START_PORT) {
+    console.log('  El puerto ' + START_PORT + ' estaba ocupado, así que usamos el ' + PORT + '.');
+  }
+  console.log('  Punto de venta (esta computadora):');
+  console.log('    ' + local);
+  console.log('\n  En los teléfonos o tablets, con la misma red Wi-Fi:');
+  urls.forEach(function (u) { console.log('    ' + u); });
+  console.log('\n  Pestaña "Meseros" en la caja → cada mesero tiene su QR.');
+  console.log('  Los datos se guardan en .data/meseros.json');
+  console.log('  Para detener: Ctrl + C o cierra esta ventana.\n');
+  openBrowser(local);
+}
+
+server.on('listening', announce);
+
+function startServer() {
+  server.listen(PORT, '0.0.0.0');
+}
+
 server.on('error', function (err) {
+  if (err.code === 'EADDRINUSE' && triesLeft > 0) {
+    triesLeft--;
+    PORT++;
+    startServer();
+    return;
+  }
   if (err.code === 'EADDRINUSE') {
-    console.error('\n  El puerto ' + PORT + ' ya está ocupado. Cierra la otra app o usa otro puerto:');
-    console.error('    PORT=3001 node server.js\n');
+    console.error('\n  No encontramos un puerto libre entre el ' + START_PORT + ' y el ' + PORT + '.');
+    console.error('  Cierra otras apps y vuelve a abrir el iniciador.\n');
   } else {
     console.error('\n  No se pudo iniciar el servidor:', err.message, '\n');
   }
   process.exit(1);
 });
 
-server.listen(PORT, '0.0.0.0', function () {
-  const urls = baseUrls();
-  console.log('\n  Café Nocturno · modo meseros');
-  console.log('  ------------------------------------------------');
-  console.log('  Punto de venta (esta computadora):');
-  console.log('    http://localhost:' + PORT);
-  console.log('\n  En los teléfonos o tablets, con la misma red Wi-Fi:');
-  urls.forEach(function (u) { console.log('    ' + u); });
-  console.log('\n  Pestaña "Meseros" en la caja → cada mesero tiene su QR.');
-  console.log('  Los datos se guardan en .data/meseros.json');
-  console.log('  Para detener: Ctrl + C\n');
-});
+startServer();
