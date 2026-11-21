@@ -1,0 +1,24 @@
+name: ensamblar app.js
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  unir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unir piezas
+        run: |
+          if [ ! -f js/app.part1 ] || [ ! -f js/app.part2 ]; then
+            echo "Faltan piezas; nada que hacer."
+            exit 0
+          fi
+          cat js/app.part1 js/app.part2 > js/app.js
+          rm -f js/app.part1 js/app.part2
+          git config user.name "cafe-nocturno-bot"
+          git config user.email "cafe-nocturno-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "Ensambla js/app.js a partir de sus piezas" || exit 0
+          git push

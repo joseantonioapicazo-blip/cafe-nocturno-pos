@@ -1,0 +1,1097 @@
+  var vesselKeys = ['demitasse', 'mug', 'glass', 'frappe', 'bowl'];
+  var toppingList = ['cream', 'ice', 'cocoa', 'latteArt', 'caramelDrizzle', 'steam', 'straw'];
+
+  var VESSELS_KEY = 'cafe-nocturno-vessels-v1';
+  var VESSEL_DEFAULTS = {
+    demitasse: { name: 'Demitasse', cap: 60 },
+    mug: { name: 'Taza', cap: 360 },
+    glass: { name: 'Vaso alto', cap: 400 },
+    frappe: { name: 'Vaso frappé', cap: 500 },
+    bowl: { name: 'Tazón', cap: 150 }
+  };
+  function loadVessels() {
+    var out = {};
+    Object.keys(VESSEL_DEFAULTS).forEach(function (k) {
+      out[k] = { name: VESSEL_DEFAULTS[k].name, cap: VESSEL_DEFAULTS[k].cap };
+    });
+    try {
+      var saved = JSON.parse(localStorage.getItem(VESSELS_KEY) || 'null');
+      if (saved && typeof saved === 'object') {
+        Object.keys(out).forEach(function (k) {
+          if (saved[k]) {
+            if (saved[k].name) out[k].name = String(saved[k].name);
+            if (Number(saved[k].cap) > 0) out[k].cap = Number(saved[k].cap);
+          }
+        });
+      }
+    } catch (e) {}
+    return out;
+  }
+  function saveVessels() { try { localStorage.setItem(VESSELS_KEY, JSON.stringify(vessels)); } catch (e) {} }
+  var vessels = loadVessels();
+  function vesselCap(id) { return (vessels[id] && vessels[id].cap) || VESSEL_DEFAULTS.mug.cap; }
+  function vesselName(id) { return (vessels[id] && vessels[id].name) || id; }
+  function vesselLabel(id) { return vesselName(id) + ' · ' + vesselCap(id) + ' ml'; }
+
+  function renderRecetas() {
+    if (!can('recetas')) { $('view-recetas').innerHTML = '<div class="page"><p>Sin permiso.</p></div>'; return; }
+    if (editingProduct) { renderRecipeEditor(); return; }
+    var drinks = allProducts().filter(function (p) { return p.sizes !== false; });
+    var cards = drinks.map(function (p) {
+      return '<div class="user-card">' +
+        '<div class="uc-top">' +
+          '<div style="width:52px;height:52px">' + artOf(p, { size: 'M', milk: 'leche' }) + '</div>' +
+          '<div style="flex:1"><div class="uc-name">' + esc(p.name) + '</div><div class="uc-user">' + esc(p.cat) + ' · ' + money(unitPrice(p, { size: 'M', milk: 'leche' })) + '</div></div>' +
+        '</div>' +
+        '<div class="uc-actions">' +
+          '<button class="btn btn-sm" data-prod-edit="' + esc(p.id) + '">Editar</button>' +
+          '<button class="btn btn-ghost btn-sm" data-prod-del="' + esc(p.id) + '">Eliminar</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    $('view-recetas').innerHTML = '<div class="users-wrap">' +
+      '<div class="users-head"><div><h2>Recetas de bebidas</h2><p>Configura bebidas: vaso, ingredientes, cantidades y orden. Arrastra los ingredientes para reordenarlos.</p></div>' +
+        '<button class="btn btn-primary" data-prod-new>+ Nueva bebida</button></div>' +
+      '<div class="users-grid">' + (cards || '<p class="empty-note">Sin bebidas.</p>') + '</div>' +
+    '</div>';
+  }
+
+  function renderRecipeEditor() {
+    var p = editingProduct === 'new' ? {
+      name: '', price: 50, vessel: 'mug', cat: 'calientes', hot: true, desc: '', toppings: [], recipe: [['espresso', 30], ['leche', 150]]
+    } : allProducts().filter(function (x) { return x.id === editingProduct; })[0];
+    if (!p) { editingProduct = null; renderRecetas(); return; }
+
+    var recipeRows = (p.recipe || []).map(function (r, i) {
+      var ing = D.ingredients[r[0]];
+      return '<div class="recipe-row" data-recipe-row="' + i + '" data-ing="' + esc(r[0]) + '" draggable="true">' +
+        '<span class="drag-grip" title="Arrastrar para reordenar">⋮⋮</span>' +
+        '<span class="swatch" style="background:' + (ing ? ing.color : '#888') + '"></span>' +
+        '<span class="recipe-name">' + esc(ing ? ing.name : r[0]) + '</span>' +
+        '<button type="button" class="qty-btn" data-qty="-1">−</button>' +
+        '<input type="number" min="1" step="1" value="' + r[1] + '" data-recipe-amt>' +
+        '<span class="recipe-unit">ml</span>' +
+        '<button type="button" class="qty-btn" data-qty="1">+</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-recipe-del>✕</button>' +
+      '</div>';
+    }).join('');
+
+    var groups = [];
+    Object.keys(D.ingredients).forEach(function (k) {
+      var g = D.ingredients[k].group || 'Otros';
+      if (groups.indexOf(g) < 0) groups.push(g);
+    });
+    var groupChips = '<button type="button" class="chip is-active" data-ing-group="all">Todos</button>' +
+      groups.map(function (g) { return '<button type="button" class="chip" data-ing-group="' + esc(g) + '">' + esc(g) + '</button>'; }).join('');
+
+    var pickCards = Object.keys(D.ingredients).map(function (k) {
+      var ing = D.ingredients[k];
+      var on = (p.recipe || []).some(function (r) { return r[0] === k; });
+      return '<button type="button" class="ing-pick-card' + (on ? ' is-on' : '') + '" data-ing-toggle="' + k + '" data-ing-name="' + esc(ing.name) + '" data-ing-group-card="' + esc(ing.group || 'Otros') + '">' +
+        '<span class="swatch" style="background:' + ing.color + '"></span>' +
+        '<span class="ing-pick-name">' + esc(ing.name) + '</span>' +
+        '<span class="ing-pick-unit">ml</span>' +
+        '<span class="ing-pick-check">✓</span>' +
+      '</button>';
+    }).join('');
+
+    var toppingChips = toppingList.map(function (t) {
+      return '<label class="extra-chip' + ((p.toppings || []).indexOf(t) >= 0 ? ' is-on' : '') + '"><input type="checkbox" name="topping" value="' + t + '"' + ((p.toppings || []).indexOf(t) >= 0 ? ' checked' : '') + '> ' + t + '</label>';
+    }).join('');
+
+    $('view-recetas').innerHTML =
+      '<div class="recipe-editor">' +
+        '<div class="recipe-menu">' +
+          '<div class="recipe-menu-head">' +
+            '<div class="recipe-back-row">' +
+              '<button class="btn btn-ghost btn-sm" type="button" data-prod-cancel>← Volver</button>' +
+              '<span class="eyebrow">Recetas</span>' +
+            '</div>' +
+            '<h2>' + (editingProduct === 'new' ? 'Nueva bebida' : 'Editar bebida') + '</h2>' +
+            '<p>Selecciona los ingredientes del menú; se agregan a la receta de la derecha.</p>' +
+            '<label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>' +
+              '<input id="ing-search" type="search" placeholder="Buscar ingrediente…" autocomplete="off" aria-label="Buscar ingrediente">' +
+            '</label>' +
+            '<div class="chips" id="ing-cats">' + groupChips + '</div>' +
+          '</div>' +
+          '<div class="recipe-menu-wrap">' +
+            '<div class="ing-pick-grid" id="ing-pick-grid">' + pickCards + '</div>' +
+            '<p class="empty-note" id="ing-no-results" hidden>No encontramos ingredientes con ese nombre.</p>' +
+          '</div>' +
+        '</div>' +
+        '<aside class="recipe-panel">' +
+          '<header class="recipe-panel-head">' +
+            '<div><span class="eyebrow">Receta</span><h2>Lo que lleva</h2></div>' +
+            '<span class="pill" id="recipe-count">0 ingr.</span>' +
+          '</header>' +
+          '<form class="recipe-form" data-prod-form>' +
+            '<div class="recipe-panel-body">' +
+              '<div class="recipe-preview-box"><div id="prod-preview" class="prod-preview"></div></div>' +
+              '<div class="recipe-fill">' +
+                '<div class="recipe-fill-head"><span>Llenado del vaso</span><b id="fill-label">0 / 0 ml</b></div>' +
+                '<div class="fill-track"><div class="fill-bar" id="fill-bar"></div></div>' +
+                '<div class="recipe-fill-note" id="fill-note"></div>' +
+              '</div>' +
+              '<div class="recipe-fields">' +
+                '<div class="row">' +
+                  '<label class="field"><span>Nombre</span><input name="name" required value="' + esc(p.name) + '"></label>' +
+                  '<label class="field"><span>Precio (M)</span><input name="price" type="number" min="1" required value="' + p.price + '"></label>' +
+                '</div>' +
+                '<div class="row">' +
+                  '<label class="field"><span>Vaso</span><select name="vessel">' +
+                    vesselKeys.map(function (v) { return '<option value="' + v + '"' + (p.vessel === v ? ' selected' : '') + '>' + esc(vesselLabel(v)) + '</option>'; }).join('') +
+                  '</select></label>' +
+                  '<label class="field"><span>Categoría</span><select name="cat">' +
+                    ['calientes','frios','tes'].map(function (c) { return '<option value="' + c + '"' + (p.cat === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
+                  '</select></label>' +
+                '</div>' +
+                '<label class="field"><span>Descripción</span><input name="desc" value="' + esc(p.desc || '') + '"></label>' +
+                '<label class="field"><span>Caliente</span><input name="hot" type="checkbox" ' + (p.hot ? 'checked' : '') + ' style="width:auto"></label>' +
+                '<div class="field"><span>Toppings</span><div class="recipe-toppings">' + toppingChips + '</div></div>' +
+              '</div>' +
+              '<div class="recipe-section-title">Ingredientes</div>' +
+              '<div id="recipe-rows" class="recipe-rows">' + recipeRows + '</div>' +
+              '<p class="empty-note" id="recipe-empty" hidden>Agrega ingredientes desde el menú de la izquierda.</p>' +
+            '</div>' +
+            '<div class="recipe-save-bar">' +
+              '<button class="btn btn-ghost" type="button" data-prod-cancel>Cancelar</button>' +
+              '<button class="btn btn-primary" type="submit">Guardar bebida</button>' +
+            '</div>' +
+          '</form>' +
+        '</aside>' +
+      '</div>';
+    setTimeout(updateProdPreview, 0);
+  }
+
+  function applyIngFilter() {
+    var grid = document.getElementById('ing-pick-grid');
+    if (!grid) return;
+    var q = ((document.getElementById('ing-search') || {}).value || '').trim().toLowerCase();
+    var active = document.querySelector('#ing-cats .chip.is-active');
+    var group = active ? active.getAttribute('data-ing-group') : 'all';
+    var any = false;
+    grid.querySelectorAll('[data-ing-toggle]').forEach(function (card) {
+      var name = String(card.getAttribute('data-ing-name') || '').toLowerCase();
+      var g = card.getAttribute('data-ing-group-card') || '';
+      var show = (!q || name.indexOf(q) >= 0) && (group === 'all' || g === group);
+      card.hidden = !show;
+      if (show) any = true;
+    });
+    var none = document.getElementById('ing-no-results');
+    if (none) none.hidden = any;
+  }
+
+  function updateProdPreview() {
+    var preview = document.getElementById('prod-preview');
+    if (!preview) return;
+    var form = document.querySelector('[data-prod-form]');
+    if (!form) return;
+    var rows = form.querySelectorAll('.recipe-row').length;
+    var countEl = document.getElementById('recipe-count');
+    if (countEl) countEl.textContent = rows + ' ingr.';
+    var emptyEl = document.getElementById('recipe-empty');
+    if (emptyEl) emptyEl.hidden = rows > 0;
+    var vessel = (form.querySelector('[name="vessel"]') || {}).value || 'mug';
+    var hot = !!(form.querySelector('[name="hot"]') && form.querySelector('[name="hot"]').checked);
+    var toppings = [];
+    form.querySelectorAll('input[name="topping"]:checked').forEach(function (cb) { toppings.push(cb.value); });
+    var recipe = [];
+    form.querySelectorAll('.recipe-row').forEach(function (row) {
+      var ing = row.getAttribute('data-ing');
+      var amt = Number((row.querySelector('[data-recipe-amt]') || {}).value) || 0;
+      if (ing && amt > 0) recipe.push([ing, amt]);
+    });
+    var totalMl = recipe.reduce(function (s, r) { return s + r[1]; }, 0);
+    var cap = vesselCap(vessel);
+    var bar = document.getElementById('fill-bar');
+    var label = document.getElementById('fill-label');
+    var note = document.getElementById('fill-note');
+    if (bar) {
+      bar.style.width = (cap > 0 ? Math.min(100, totalMl / cap * 100) : 0).toFixed(1) + '%';
+      bar.classList.toggle('is-over', totalMl > cap);
+    }
+    if (label) label.textContent = totalMl + ' / ' + cap + ' ml';
+    if (note) {
+      note.textContent = totalMl > cap
+        ? 'Excede la capacidad por ' + (totalMl - cap) + ' ml'
+        : 'Capacidad del vaso: ' + cap + ' ml';
+    }
+    var temp = { id: 'preview', name: 'Vista previa', vessel: vessel, hot: hot, toppings: toppings, recipe: recipe, sizes: true, capacity: cap };
+    try {
+      preview.innerHTML = '<div style="width:140px;height:140px;margin:0 auto">' + artOf(temp, { size: 'M', milk: 'leche' }) + '</div>';
+    } catch (e) { preview.innerHTML = ''; }
+  }
+
+  function recipeTotal(form, skipRow) {
+    var total = 0;
+    if (!form) return total;
+    form.querySelectorAll('.recipe-row').forEach(function (row) {
+      if (row === skipRow) return;
+      var inp = row.querySelector('[data-recipe-amt]');
+      total += Number(inp && inp.value) || 0;
+    });
+    return total;
+  }
+
+  function renderIngredientes() {
+    if (!can('ingredientes')) { $('view-ingredientes').innerHTML = '<div class="page"><p>Sin permiso.</p></div>'; return; }
+    var keys = Object.keys(D.ingredients);
+    var groups = {};
+    keys.forEach(function (k) { var g = D.ingredients[k].group || 'Otros'; if (!groups[g]) groups[g] = []; groups[g].push(k); });
+    var cards = keys.map(function (k) {
+      var ing = D.ingredients[k];
+      return '<div class="user-card">' +
+        '<div class="uc-top">' +
+          '<span class="swatch" style="background:' + ing.color + ';width:24px;height:24px;border-radius:6px"></span>' +
+          '<div style="flex:1"><div class="uc-name">' + esc(ing.name) + '</div><div class="uc-user">' + esc(k) + ' · ' + esc(ing.unit) + ' · ' + (ing.track ? 'inventario: sí' : 'sin inventario') + '</div></div>' +
+        '</div>' +
+        '<div class="uc-actions">' +
+          '<button class="btn btn-sm" data-ing-edit="' + esc(k) + '">Editar</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var form = '';
+    if (editingIngredient) {
+      var ing = editingIngredient === 'new' ? { name: '', unit: 'g', unitName: '', unitSize: 100, color: '#888888', group: 'Café y barra', track: true, stock: 0, min: 0, cap: 0, artColor: '' } : D.ingredients[editingIngredient];
+      if (!ing && editingIngredient !== 'new') { editingIngredient = null; }
+      else {
+        form = '<form class="user-form" data-ing-form style="max-width:640px">' +
+          '<h3 style="margin:0 0 4px;font-family:Fraunces,serif;font-size:18px">' + (editingIngredient === 'new' ? 'Nuevo ingrediente' : 'Editar ingrediente') + '</h3>' +
+          '<div class="row">' +
+            '<label class="field"><span>Clave (id)</span><input name="key" required value="' + esc(editingIngredient === 'new' ? '' : editingIngredient) + '"' + (editingIngredient === 'new' ? '' : ' readonly') + '></label>' +
+            '<label class="field"><span>Nombre</span><input name="name" required value="' + esc(ing.name) + '"></label>' +
+          '</div>' +
+          '<div class="row">' +
+            '<label class="field"><span>Color</span><input name="color" type="color" value="' + esc(ing.color || '#888888') + '" style="height:40px;padding:2px"></label>' +
+            '<label class="field"><span>Unidad (medida)</span><input name="unit" required value="' + esc(ing.unit) + '" placeholder="ml, g"></label>' +
+          '</div>' +
+          '<div class="row">' +
+            '<label class="field"><span>Nombre del envase</span><input name="unitName" value="' + esc(ing.unitName || '') + '" placeholder="bote, bolsa"></label>' +
+            '<label class="field"><span>Tamaño del envase</span><input name="unitSize" type="number" min="1" value="' + (ing.unitSize || 0) + '"></label>' +
+          '</div>' +
+          '<div class="row">' +
+            '<label class="field"><span>Grupo</span><input name="group" value="' + esc(ing.group || '') + '"></label>' +
+            '<label class="field"><span>Inventariar</span><select name="track"><option value="true"' + (ing.track ? ' selected' : '') + '>Sí</option><option value="false"' + (!ing.track ? ' selected' : '') + '>No</option></select></label>' +
+          '</div>' +
+          '<div class="row">' +
+            '<label class="field"><span>Stock (unidades)</span><input name="stock" type="number" min="0" value="' + (ing.stock || 0) + '"></label>' +
+            '<label class="field"><span>Mínimo</span><input name="min" type="number" min="0" value="' + (ing.min || 0) + '"></label>' +
+            '<label class="field"><span>Capacidad</span><input name="cap" type="number" min="0" value="' + (ing.cap || 0) + '"></label>' +
+          '</div>' +
+          '<label class="field"><span>Color en dibujo (artColor, opcional)</span><input name="artColor" value="' + esc(ing.artColor || '') + '"></label>' +
+          '<div style="display:flex;gap:8px;margin-top:8px">' +
+            '<button class="btn btn-primary" type="submit">Guardar</button>' +
+            '<button class="btn btn-ghost" type="button" data-ing-cancel>Cancelar</button>' +
+          '</div>' +
+        '</form>';
+      }
+    }
+
+    $('view-ingredientes').innerHTML = '<div class="users-wrap">' +
+      '<div class="users-head"><div><h2>Ingredientes</h2><p>Edita nombre, color, unidades y si se inventaria. Los cambios se guardan en el navegador.</p></div>' +
+        '<button class="btn btn-primary" data-ing-new>+ Nuevo ingrediente</button></div>' +
+      '<div class="users-grid">' + (cards || '<p class="empty-note">Sin ingredientes.</p>') + '</div>' +
+      (form ? '<div>' + form + '</div>' : '') +
+    '</div>';
+  }
+
+  function renderVasos() {
+    if (!can('recetas')) { $('view-vasos').innerHTML = '<div class="page"><p>Sin permiso.</p></div>'; return; }
+    var cards = vesselKeys.map(function (id) {
+      var v = vessels[id];
+      var demo = { id: 'demo_' + id, vessel: id, hot: false, toppings: [], recipe: [['agua', v.cap]], capacity: v.cap };
+      var art = '';
+      try { art = A.product(demo, recipeFor(demo, {})); } catch (e) { art = ''; }
+      return '<div class="user-card vessel-card">' +
+        '<div class="vessel-art">' + art + '</div>' +
+        '<div class="uc-name">' + esc(v.name) + '</div>' +
+        '<div class="uc-user">' + v.cap + ' ml de capacidad</div>' +
+        '<form class="vessel-form" data-vessel-form="' + id + '">' +
+          '<label class="field"><span>Nombre</span><input name="name" required value="' + esc(v.name) + '"></label>' +
+          '<label class="field"><span>Capacidad (ml)</span><input name="cap" type="number" min="1" step="1" value="' + v.cap + '"></label>' +
+          '<button class="btn btn-primary btn-block" type="submit">Guardar</button>' +
+        '</form>' +
+      '</div>';
+    }).join('');
+    $('view-vasos').innerHTML = '<div class="users-wrap">' +
+      '<div class="users-head"><div><h2>Vasos</h2><p>Configura el nombre y la capacidad en ml de cada vaso. La receta se llena hasta esa capacidad.</p></div></div>' +
+      '<div class="users-grid">' + cards + '</div>' +
+    '</div>';
+  }
+
+  /* ---------------- Usuarios ---------------- */
+
+  var editingUser = null;
+
+  function renderUsuarios() {
+    if (!can('usuarios')) { $('view-usuarios').innerHTML = '<div class="page"><p>Sin permiso.</p></div>'; return; }
+    var cards = users.map(function (u) {
+      var initials = u.name.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+      return '<div class="user-card">' +
+        '<div class="uc-top">' +
+          '<div class="uc-avatar">' + esc(initials) + '</div>' +
+          '<div><div class="uc-name">' + esc(u.name) + '</div><div class="uc-user">@' + esc(u.username) + '</div></div>' +
+          '<span class="uc-role ' + esc(u.role) + '">' + esc(roleLabel(u.role)) + '</span>' +
+        '</div>' +
+        '<div class="uc-actions">' +
+          '<button class="btn btn-sm" data-user-edit="' + esc(u.id) + '">Editar</button>' +
+          (u.id === currentUser.id ? '' : '<button class="btn btn-ghost btn-sm" data-user-del="' + esc(u.id) + '">Eliminar</button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var form = '';
+    if (editingUser) {
+      var u = editingUser === 'new' ? { name: '', username: '', password: '', role: 'cajero' } : users.filter(function (x) { return x.id === editingUser; })[0];
+      if (!u) editingUser = null;
+      else {
+        form = '<form class="user-form" data-user-form>' +
+          '<h3 style="margin:0 0 4px;font-family:Fraunces,serif;font-size:18px">' + (editingUser === 'new' ? 'Nuevo usuario' : 'Editar usuario') + '</h3>' +
+          '<div class="row">' +
+            '<label class="field"><span>Nombre</span><input name="name" required value="' + esc(u.name) + '"></label>' +
+            '<label class="field"><span>Usuario</span><input name="username" required value="' + esc(u.username) + '"></label>' +
+          '</div>' +
+          '<div class="row">' +
+            '<label class="field"><span>Contraseña</span><input name="password" type="password" ' + (editingUser === 'new' ? 'required' : '') + ' placeholder="' + (editingUser === 'new' ? '' : 'Dejar vacío para no cambiar') + '" value=""></label>' +
+            '<label class="field"><span>Rol</span><select name="role">' +
+              ['admin','gerente','cajero'].map(function (r) { return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + roleLabel(r) + '</option>'; }).join('') +
+            '</select></label>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:4px">' +
+            '<button class="btn btn-primary" type="submit">Guardar</button>' +
+            '<button class="btn btn-ghost" type="button" data-user-cancel>Cancelar</button>' +
+          '</div>' +
+        '</form>';
+      }
+    }
+
+    $('view-usuarios').innerHTML = '<div class="users-wrap">' +
+      '<div class="users-head"><div><h2>Usuarios</h2><p>Administra los accesos al sistema por rol: administrador, gerente y cajero.</p></div>' +
+        '<button class="btn btn-primary" data-user-new>+ Nuevo usuario</button></div>' +
+      '<div class="users-grid">' + cards + '</div>' +
+      (form ? '<div>' + form + '</div>' : '') +
+    '</div>';
+  }
+
+  /* ---------------- CSV ---------------- */
+
+  function exportCSV() {
+    var rows = [['Folio', 'Fecha', 'Hora', 'Productos', 'Articulos', 'Metodo', 'Total', 'Estado']];
+    state.sales.forEach(function (s) {
+      var d = new Date(s.at);
+      rows.push([
+        pad(s.folio, 4),
+        d.toLocaleDateString('es-MX'),
+        d.toLocaleTimeString('es-MX'),
+        s.items.map(function (i) { return i.qty + 'x ' + i.name; }).join(' | '),
+        s.items.reduce(function (a, i) { return a + i.qty; }, 0),
+        s.method,
+        s.total,
+        s.voided ? 'cancelada' : 'cobrada'
+      ]);
+    });
+    var csv = rows.map(function (r) {
+      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+    var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ventas-cafe-nocturno.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+    toast('Reporte CSV descargado');
+  }
+
+  /* ---------------- toast ---------------- */
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast');
+    t.innerHTML = '<span class="dot-ok"></span>' + esc(msg);
+    t.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('is-on'); }, 2600);
+  }
+
+  /* ---------------- vistas ---------------- */
+
+  function setView(name) {
+    if (name === 'corte' && !can('corte')) name = 'venta';
+    if (name === 'inventario' && !can('inventarioView')) name = 'venta';
+    if (name === 'usuarios' && !can('usuarios')) name = 'venta';
+    if (name === 'recetas' && !can('recetas')) name = 'venta';
+    if (name === 'ingredientes' && !can('ingredientes')) name = 'venta';
+    if (name === 'vasos' && !can('recetas')) name = 'venta';
+    viewed.view = name;
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-view') === name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.view'), function (v) {
+      v.classList.toggle('is-active', v.id === 'view-' + name);
+    });
+    if (name === 'corte') renderCorte();
+    if (name === 'historial') renderHistorial();
+    if (name === 'inventario') renderInventario();
+    if (name === 'usuarios') renderUsuarios();
+    if (name === 'recetas') renderRecetas();
+    if (name === 'ingredientes') renderIngredientes();
+    if (name === 'vasos') renderVasos();
+    if (name === 'venta') renderProducts();
+  }
+
+  function applySettings() {
+    var h1 = document.querySelector('.brand-text h1');
+    var p = document.querySelector('.brand-text p');
+    if (h1) h1.textContent = state.settings.name;
+    if (p) p.textContent = state.settings.tagline;
+    document.title = state.settings.name + ' · Punto de venta';
+  }
+
+  function applyUserUI() {
+    var overlay = $('login-overlay');
+    if (!currentUser) { overlay.hidden = false; return; }
+    overlay.hidden = true;
+    $('cashier-name').textContent = currentUser.name;
+    $('cashier-register').textContent = roleLabel(currentUser.role);
+    var initials = currentUser.name.split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+    $('cashier-avatar').textContent = initials || 'U';
+    // tabs visibles por rol
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (b) {
+      var v = b.getAttribute('data-view');
+      var show = true;
+      if (v === 'corte') show = can('corte');
+      if (v === 'inventario') show = can('inventarioView');
+      if (v === 'usuarios') show = can('usuarios');
+      if (v === 'recetas') show = can('recetas');
+      if (v === 'ingredientes') show = can('ingredientes');
+      if (v === 'vasos') show = can('recetas');
+      b.hidden = !show;
+    });
+    // si la vista actual ya no está permitida, ir a venta
+    var active = document.querySelector('.tab.is-active');
+    if (active && active.hidden) setView('venta');
+  }
+
+  function doLogin(username, password) {
+    for (var i = 0; i < users.length; i++) {
+      if (users[i].username === username && users[i].password === password) {
+        currentUser = users[i];
+        saveSession({ userId: currentUser.id });
+        applyUserUI();
+        renderCart();
+        setView('venta');
+        return true;
+      }
+    }
+    return false;
+  }
+  function doLogout() {
+    currentUser = null;
+    clearSession();
+    applyUserUI();
+  }
+
+  /* ---------------- eventos ---------------- */
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+
+    var tab = t.closest('[data-view]');
+    if (tab) { setView(tab.getAttribute('data-view')); return; }
+
+    var closeBtn = t.closest('[data-close-modal]');
+    if (closeBtn) { closeModal(); return; }
+
+    var info = t.closest('[data-info]');
+    if (info) { e.stopPropagation(); openProduct(info.getAttribute('data-info')); return; }
+
+    var open = t.closest('[data-open]');
+    if (open) {
+      var prod = productById(open.getAttribute('data-open'));
+      if (prod) openProduct(prod.id);
+      return;
+    }
+
+    var cat = t.closest('[data-cat]');
+    if (cat) { viewed.cat = cat.getAttribute('data-cat'); renderChips(); renderProducts(); return; }
+
+    var edit = t.closest('[data-edit]');
+    if (edit) { openProduct(cartLine(edit.getAttribute('data-edit')).pid, edit.getAttribute('data-edit')); return; }
+
+    var inc = t.closest('[data-inc]');
+    if (inc) {
+      var li = cartLine(inc.getAttribute('data-inc'));
+      if (li) { li.qty += 1; save(); renderCart(); }
+      return;
+    }
+    var dec = t.closest('[data-dec]');
+    if (dec) {
+      var ld = cartLine(dec.getAttribute('data-dec'));
+      if (ld) {
+        ld.qty -= 1;
+        if (ld.qty <= 0) state.cart = state.cart.filter(function (x) { return x.uid !== ld.uid; });
+        save(); renderCart();
+      }
+      return;
+    }
+
+    /* configurador */
+    var sizeBtn = t.closest('[data-size]');
+    if (sizeBtn && cfg) { cfg.size = sizeBtn.getAttribute('data-size'); renderCfg(); return; }
+
+    var qbtn = t.closest('[data-cfg-qty]');
+    if (qbtn && cfg) {
+      cfg.qty = Math.max(1, Math.min(30, cfg.qty + Number(qbtn.getAttribute('data-cfg-qty'))));
+      renderCfg();
+      return;
+    }
+
+    var saveBtn = t.closest('[data-cfg-save]');
+    if (saveBtn && cfg) {
+      var p2 = productById(cfg.pid);
+      if (cfg.uid) {
+        var line = cartLine(cfg.uid);
+        if (line) {
+          line.size = cfg.size; line.milk = cfg.milk; line.extra = cfg.extra; line.qty = cfg.qty;
+        }
+        save(); renderCart(); closeModal();
+        toast('Ticket actualizado');
+      } else {
+        addToCart(p2, { size: cfg.size, milk: cfg.milk, extras: cfg.extras, qty: cfg.qty });
+        closeModal();
+        toast(cfg.qty + ' × ' + p2.name + ' agregado');
+      }
+      cfg = null;
+      return;
+    }
+
+    /* cobro */
+    var method = t.closest('[data-method]');
+    if (method) { pay.method = method.getAttribute('data-method'); renderPay(); return; }
+
+    var cash = t.closest('[data-cash]');
+    if (cash) {
+      var t2 = cartTotals();
+      var v = cash.getAttribute('data-cash');
+      pay.received = v === 'exact' ? t2.total : Number(v);
+      var inp = $('cash-input');
+      if (inp) inp.value = Math.round(pay.received);
+      updateChange();
+      return;
+    }
+
+    var confirmBtn = t.closest('[data-confirm]');
+    if (confirmBtn) { completeSale(); return; }
+
+    var printBtn = t.closest('[data-print]');
+    if (printBtn) { window.print(); return; }
+
+    var ticketBtn = t.closest('[data-ticket]');
+    if (ticketBtn) {
+      var folio = Number(ticketBtn.getAttribute('data-ticket'));
+      var sale = state.sales.filter(function (s) { return s.folio === folio; })[0];
+      if (sale) openTicket(sale);
+      return;
+    }
+
+    var voidBtn = t.closest('[data-void]');
+    if (voidBtn) {
+      if (!can('voidSale')) { toast('Sin permiso para cancelar tickets'); return; }
+      var f2 = Number(voidBtn.getAttribute('data-void'));
+      var s2 = state.sales.filter(function (s) { return s.folio === f2; })[0];
+      if (!s2) return;
+      if (!window.confirm('¿Cancelar el ticket #' + pad(s2.folio, 4) + ' por ' + money(s2.total) + '? El inventario se repondrá.')) return;
+      adjustStock(s2.items, 1);
+      s2.voided = true;
+      save(); renderHistorial(); renderCorte(); renderProducts(); renderInventario();
+      toast('Ticket #' + pad(s2.folio, 4) + ' cancelado');
+      return;
+    }
+
+    var exportBtn = t.closest('[data-export]');
+    if (exportBtn) { exportCSV(); return; }
+
+    var resetBtn = t.closest('[data-reset-day]');
+    if (resetBtn) {
+      if (!window.confirm('¿Cerrar la jornada? Se archivarán las ventas del día y el inventario se restablecerá a los niveles iniciales.')) return;
+      state.sales = [];
+      state.folio = 1;
+      state.stock = defaultStock();
+      state.cart = [];
+      save(); renderCart(); renderCorte(); renderInventario(); renderHistorial();
+      toast('Jornada cerrada, inventario restablecido');
+      return;
+    }
+
+    var saveSet = t.closest('[data-save-settings]');
+    if (saveSet) {
+      state.settings.name = $('set-name').value.trim() || D.settings.name;
+      state.settings.tagline = $('set-tagline').value.trim();
+      state.settings.cashier = $('set-cashier').value.trim() || D.settings.cashier;
+      state.settings.register = $('set-register').value.trim() || D.settings.register;
+      state.settings.taxRate = Math.max(0, Math.min(30, Number($('set-tax').value) || 0));
+      state.settings.footer = $('set-footer').value.trim();
+      save(); applySettings(); renderCorte(); renderCart();
+      toast('Datos del negocio guardados');
+      return;
+    }
+
+    var restock = t.closest('[data-restock]');
+    if (restock) {
+      if (!can('inventarioEdit')) { toast('Sin permiso para reabastecer'); return; }
+      var key = restock.getAttribute('data-restock');
+      var ing = D.ingredients[key];
+      var input = modalCard.querySelector('[data-restock-input="' + key + '"]') ||
+        document.querySelector('[data-restock-input="' + key + '"]');
+      var amount = Number(input && input.value);
+      if (!amount || amount <= 0) amount = 1;
+      state.stock[key] = (state.stock[key] || 0) + amount;
+      save(); renderInventario();
+      toast(ing.name + ' +' + fmtNum(amount) + ' ' + (ing.unitName || 'unidad'));
+      return;
+    }
+
+    var invChip = t.closest('[data-inv-group]');
+    if (invChip) { invGroup = invChip.getAttribute('data-inv-group'); renderInventario(); return; }
+
+    var userNew = t.closest('[data-user-new]');
+    if (userNew) { if (can('usuarios')) { editingUser = 'new'; renderUsuarios(); } return; }
+    var userEdit = t.closest('[data-user-edit]');
+    if (userEdit) { if (can('usuarios')) { editingUser = userEdit.getAttribute('data-user-edit'); renderUsuarios(); } return; }
+    var userDel = t.closest('[data-user-del]');
+    if (userDel) {
+      if (!can('usuarios')) return;
+      var did = userDel.getAttribute('data-user-del');
+      if (did === (currentUser && currentUser.id)) { toast('No puedes eliminar tu propia cuenta'); return; }
+      if (!window.confirm('¿Eliminar este usuario?')) return;
+      users = users.filter(function (x) { return x.id !== did; });
+      saveUsers(users);
+      editingUser = null;
+      renderUsuarios();
+      toast('Usuario eliminado');
+      return;
+    }
+    var userCancel = t.closest('[data-user-cancel]');
+    if (userCancel) { editingUser = null; renderUsuarios(); return; }
+  });
+
+  /* product events */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var pn = t.closest('[data-prod-new]');
+    if (pn) { if (can('recetas')) { editingProduct = 'new'; renderRecetas(); } return; }
+    var pe = t.closest('[data-prod-edit]');
+    if (pe) { if (can('recetas')) { editingProduct = pe.getAttribute('data-prod-edit'); renderRecetas(); } return; }
+    var pd = t.closest('[data-prod-del]');
+    if (pd) {
+      if (!can('recetas')) return;
+      var pid = pd.getAttribute('data-prod-del');
+      if (!window.confirm('¿Eliminar este bebida?')) return;
+      state.products = allProducts().filter(function (p) { return p.id !== pid; });
+      save(); renderRecetas(); renderChips(); renderProducts();
+      toast('Bebida eliminada');
+      return;
+    }
+    var pc = t.closest('[data-prod-cancel]');
+    if (pc) { editingProduct = null; renderRecetas(); return; }
+    var ingToggle = t.closest('[data-ing-toggle]');
+    if (ingToggle) {
+      var key = ingToggle.getAttribute('data-ing-toggle');
+      var container = document.getElementById('recipe-rows');
+      var palette = document.getElementById('ing-palette');
+      if (container) {
+        var existing = container.querySelector('.recipe-row[data-ing="' + key + '"]');
+        if (existing) {
+          existing.remove();
+          if (ingToggle) ingToggle.classList.remove('is-on');
+        } else {
+          var formEl = document.querySelector('[data-prod-form]');
+          var vsel = formEl && formEl.querySelector('[name="vessel"]');
+          var capNow = vesselCap(vsel ? vsel.value : 'mug');
+          var remaining = capNow - recipeTotal(formEl);
+          if (remaining <= 0) { toast('El vaso está lleno (' + capNow + ' ml)'); return; }
+          var defAmt = Math.min(30, remaining);
+          var ing = D.ingredients[key];
+          var row = document.createElement('div');
+          row.className = 'recipe-row';
+          row.setAttribute('draggable', 'true');
+          row.setAttribute('data-ing', key);
+          row.innerHTML = '<span class="drag-grip" title="Arrastrar para reordenar">⋮⋮</span>' +
+            '<span class="swatch" style="background:' + ing.color + '"></span>' +
+            '<span class="recipe-name">' + esc(ing.name) + '</span>' +
+            '<button type="button" class="qty-btn" data-qty="-1">−</button>' +
+            '<input type="number" min="1" step="1" value="' + defAmt + '" data-recipe-amt>' +
+            '<span class="recipe-unit">ml</span>' +
+            '<button type="button" class="qty-btn" data-qty="1">+</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-recipe-del>✕</button>';
+          container.appendChild(row);
+          if (ingToggle) ingToggle.classList.add('is-on');
+        }
+        updateProdPreview();
+      }
+      return;
+    }
+    var qtyBtn = t.closest('[data-qty]');
+    if (qtyBtn) {
+      var rowEl = qtyBtn.closest('.recipe-row');
+      if (rowEl) {
+        var input = rowEl.querySelector('[data-recipe-amt]');
+        var delta = Number(qtyBtn.getAttribute('data-qty'));
+        var qform = qtyBtn.closest('[data-prod-form]');
+        var qvsel = qform && qform.querySelector('[name="vessel"]');
+        var qcap = vesselCap(qvsel ? qvsel.value : 'mug');
+        var maxAmt = Math.max(1, qcap - recipeTotal(qform, rowEl));
+        var cur = Number(input.value) || 0;
+        var next = Math.max(1, cur + delta);
+        if (next > maxAmt) { next = maxAmt; toast('Capacidad del vaso: ' + qcap + ' ml'); }
+        input.value = next;
+        updateProdPreview();
+      }
+      return;
+    }
+    var rd = t.closest('[data-recipe-del]');
+    if (rd) {
+      var rowEl2 = rd.closest('.recipe-row');
+      if (rowEl2) {
+        var ingKey = rowEl2.getAttribute('data-ing');
+        rowEl2.remove();
+        if (ingKey) {
+          var chip = document.querySelector('[data-ing-toggle="' + ingKey + '"]');
+          if (chip) chip.classList.remove('is-on');
+        }
+        updateProdPreview();
+      }
+      return;
+    }
+  });
+
+  /* ingredient events */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var igroup = t.closest('[data-ing-group]');
+    if (igroup) {
+      var cats = document.getElementById('ing-cats');
+      if (cats) cats.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('is-active'); });
+      igroup.classList.add('is-active');
+      applyIngFilter();
+      return;
+    }
+    var inew = t.closest('[data-ing-new]');
+    if (inew) { if (can('ingredientes')) { editingIngredient = 'new'; renderIngredientes(); } return; }
+    var iedit = t.closest('[data-ing-edit]');
+    if (iedit) { if (can('ingredientes')) { editingIngredient = iedit.getAttribute('data-ing-edit'); renderIngredientes(); } return; }
+    var icancel = t.closest('[data-ing-cancel]');
+    if (icancel) { editingIngredient = null; renderIngredientes(); return; }
+  });
+
+  // ---- drag & drop reorder for recipe rows ----
+  var dragSrc = null;
+  document.addEventListener('dragstart', function (e) {
+    var row = e.target && e.target.closest ? e.target.closest('.recipe-row') : null;
+    if (!row) return;
+    dragSrc = row;
+    row.classList.add('dragging');
+    try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); } catch (err) {}
+  });
+  document.addEventListener('dragover', function (e) {
+    var row = e.target && e.target.closest ? e.target.closest('.recipe-row') : null;
+    if (!row || !dragSrc || row === dragSrc) return;
+    e.preventDefault();
+    var rect = row.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height / 2;
+    row.classList.toggle('drag-over-top', before);
+    row.classList.toggle('drag-over-bottom', !before);
+  });
+  document.addEventListener('drop', function (e) {
+    var row = e.target && e.target.closest ? e.target.closest('.recipe-row') : null;
+    if (!row || !dragSrc || row === dragSrc) return;
+    e.preventDefault();
+    var rect = row.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height / 2;
+    var container = dragSrc.parentNode;
+    if (before) container.insertBefore(dragSrc, row);
+    else container.insertBefore(dragSrc, row.nextSibling);
+    updateProdPreview();
+  });
+  document.addEventListener('dragend', function () {
+    if (dragSrc) dragSrc.classList.remove('dragging');
+    document.querySelectorAll('.recipe-row').forEach(function (r) {
+      r.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    dragSrc = null;
+  });
+
+  document.addEventListener('submit', function (e) {
+    var pform = e.target.closest('[data-prod-form]');
+    if (pform) {
+      if (!can('recetas')) return;
+      e.preventDefault();
+      var fd = new FormData(pform);
+      var name = String(fd.get('name') || '').trim();
+      var price = Number(fd.get('price'));
+      var vessel = String(fd.get('vessel') || 'mug');
+      var cat = String(fd.get('cat') || 'calientes');
+      var hot = !!pform.querySelector('[name="hot"]').checked;
+      var desc = String(fd.get('desc') || '').trim();
+      var toppings = [];
+      pform.querySelectorAll('input[name="topping"]:checked').forEach(function (cb) { toppings.push(cb.value); });
+      var recipe = [];
+      pform.querySelectorAll('.recipe-row').forEach(function (row) {
+        var ing = row.getAttribute('data-ing');
+        var amtInput = row.querySelector('[data-recipe-amt]');
+        var amt = amtInput ? Number(amtInput.value) : 0;
+        if (ing && amt > 0) recipe.push([ing, amt]);
+      });
+      var vselPost = pform.querySelector('[name="vessel"]');
+      var capPost = vesselCap(vselPost ? vselPost.value : 'mug');
+      var totalPost = recipe.reduce(function (s, r) { return s + r[1]; }, 0);
+      if (totalPost > capPost) { toast('La receta supera la capacidad del vaso (' + capPost + ' ml)'); return; }
+      if (!name || !recipe.length) { toast('Nombre y receta son obligatorios'); return; }
+      if (editingProduct === 'new') {
+        var newId = 'prod_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+        allProducts().push({ id: newId, name: name, cat: cat, price: price, vessel: vessel, hot: hot, toppings: toppings, desc: desc, recipe: recipe, sizes: true });
+      } else {
+        var idx = -1;
+        var list = allProducts();
+        for (var i = 0; i < list.length; i++) if (list[i].id === editingProduct) { idx = i; break; }
+        if (idx < 0) return;
+        list[idx].name = name; list[idx].price = price; list[idx].vessel = vessel; list[idx].cat = cat;
+        list[idx].hot = hot; list[idx].desc = desc; list[idx].toppings = toppings; list[idx].recipe = recipe;
+      }
+      save();
+      editingProduct = null;
+      renderRecetas(); renderChips(); renderProducts();
+      toast('Bebida guardada');
+      return;
+    }
+
+    var vform = e.target.closest('[data-vessel-form]');
+    if (vform) {
+      if (!can('recetas')) return;
+      e.preventDefault();
+      var vid = vform.getAttribute('data-vessel-form');
+      if (!vessels[vid]) return;
+      var vfd = new FormData(vform);
+      var vname = String(vfd.get('name') || '').trim();
+      var vcap = Math.max(1, Number(vfd.get('cap')) || 0);
+      if (!vname) { toast('El nombre del vaso es obligatorio'); return; }
+      vessels[vid].name = vname;
+      vessels[vid].cap = vcap;
+      saveVessels();
+      renderVasos();
+      toast('Vaso actualizado');
+      return;
+    }
+
+    var iform = e.target.closest('[data-ing-form]');
+    if (iform) {
+      if (!can('ingredientes')) return;
+      e.preventDefault();
+      var fd = new FormData(iform);
+      var key = String(fd.get('key') || '').trim();
+      var name = String(fd.get('name') || '').trim();
+      if (!key || !name) { toast('Clave y nombre son obligatorios'); return; }
+      var color = String(fd.get('color') || '#888888');
+      var unit = String(fd.get('unit') || 'g').trim();
+      var unitName = String(fd.get('unitName') || '').trim();
+      var unitSize = Number(fd.get('unitSize')) || 0;
+      var group = String(fd.get('group') || '').trim() || 'Otros';
+      var track = String(fd.get('track')) === 'true';
+      var stock = Number(fd.get('stock')) || 0;
+      var min = Number(fd.get('min')) || 0;
+      var cap = Number(fd.get('cap')) || 0;
+      var artColor = String(fd.get('artColor') || '').trim();
+      var isNew = editingIngredient === 'new';
+      if (isNew) {
+        if (D.ingredients[key]) { toast('Esa clave ya existe'); return; }
+        D.ingredients[key] = { name: name, unit: unit, unitName: unitName, unitSize: unitSize, color: color, group: group, track: track, stock: stock, min: min, cap: cap };
+        if (artColor) D.ingredients[key].artColor = artColor;
+      } else {
+        if (!D.ingredients[editingIngredient]) { toast('Ingrediente no encontrado'); return; }
+        if (key !== editingIngredient) { toast('No se puede cambiar la clave'); return; }
+        var ing = D.ingredients[editingIngredient];
+        ing.name = name; ing.color = color; ing.unit = unit; ing.unitName = unitName;
+        ing.unitSize = unitSize; ing.group = group; ing.track = track;
+        ing.stock = stock; ing.min = min; ing.cap = cap;
+        if (artColor) ing.artColor = artColor; else delete ing.artColor;
+      }
+      if (track) state.stock[key] = stock; else delete state.stock[key];
+      save();
+      saveIngredients();
+      editingIngredient = null;
+      renderIngredientes();
+      toast('Ingrediente guardado');
+      return;
+    }
+
+    var form = e.target.closest('[data-user-form]');
+    if (!form) return;
+    if (!can('usuarios')) return;
+    e.preventDefault();
+    var fd = new FormData(form);
+    var name = String(fd.get('name') || '').trim();
+    var username = String(fd.get('username') || '').trim();
+    var password = String(fd.get('password') || '');
+    var role = String(fd.get('role') || 'cajero');
+    if (!name || !username) { toast('Nombre y usuario son obligatorios'); return; }
+    if (editingUser === 'new') {
+      if (users.some(function (x) { return x.username === username; })) { toast('Ese usuario ya existe'); return; }
+      if (!password) { toast('La contraseña es obligatoria'); return; }
+      users.push({ id: genUserId(), name: name, username: username, password: password, role: role });
+    } else {
+      var idx = -1;
+      for (var i = 0; i < users.length; i++) if (users[i].id === editingUser) { idx = i; break; }
+      if (idx < 0) return;
+      if (users.some(function (x, i) { return x.username === username && i !== idx; })) { toast('Ese usuario ya existe'); return; }
+      users[idx].name = name;
+      users[idx].username = username;
+      if (password) users[idx].password = password;
+      users[idx].role = role;
+      // si editamos el usuario actual, refrescar sesión
+      if (currentUser && currentUser.id === users[idx].id) currentUser = users[idx];
+    }
+    saveUsers(users);
+    editingUser = null;
+    renderUsuarios();
+    applyUserUI();
+    toast('Usuario guardado');
+  });
+
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('[data-prod-form]')) updateProdPreview();
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.matches('[data-milk]') && cfg) { cfg.milk = t.value; renderCfg(); }
+    if (t.matches('[data-extra-id]') && cfg) {
+      var id = t.getAttribute('data-extra-id');
+      if (t.checked) { if (cfg.extras.indexOf(id) === -1) cfg.extras.push(id); }
+      else { cfg.extras = cfg.extras.filter(function (x) { return x !== id; }); }
+      renderCfg();
+    }
+    if (t.matches('[data-recipe-amt]')) {
+      var cform = t.closest('[data-prod-form]');
+      if (cform) {
+        var cvsel = cform.querySelector('[name="vessel"]');
+        var ccap = vesselCap(cvsel ? cvsel.value : 'mug');
+        var cmax = Math.max(1, ccap - recipeTotal(cform, t.closest('.recipe-row')));
+        if ((Number(t.value) || 0) > cmax) { t.value = cmax; toast('Capacidad del vaso: ' + ccap + ' ml'); }
+        updateProdPreview();
+      }
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.id === 'search') {
+      viewed.q = t.value;
+      renderProducts();
+    }
+    if (t.id === 'ing-search') {
+      applyIngFilter();
+    }
+    if (t.id === 'cash-input') {
+      pay.received = Number(t.value) || 0;
+      updateChange();
+    }
+    if (t.id === 'hist-search') {
+      histQ = t.value;
+      var focusAtEnd = t.value.length;
+      renderHistorial();
+      var again = $('hist-search');
+      if (again) { again.focus(); try { again.setSelectionRange(focusAtEnd, focusAtEnd); } catch (err) { /* noop */ } }
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modalRoot.hidden) { closeModal(); cfg = null; return; }
+    var card = e.target.closest && e.target.closest('[data-open]');
+    if (card && e.target.closest('[data-info]')) return;
+    if (card && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      var prod = productById(card.getAttribute('data-open'));
+      if (prod) openProduct(prod.id);
+    }
+  });
+
+  $('clear-cart').addEventListener('click', function () {
+    if (!state.cart.length) return;
+    if (!window.confirm('¿Vaciar el ticket actual?')) return;
+    state.cart = [];
+    save(); renderCart();
+  });
+  $('checkout').addEventListener('click', openCheckout);
+
+  /* ---------------- reloj ---------------- */
+
+  function tick() {
+    var d = new Date();
+    $('clock-time').textContent = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    $('clock-date').textContent = d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  /* ---------------- login / logout ---------------- */
+
+  var loginForm = $('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var u = ($('login-user').value || '').trim();
+      var p = $('login-pass').value || '';
+      if (doLogin(u, p)) {
+        $('login-error').hidden = true;
+        $('login-pass').value = '';
+      } else {
+        $('login-error').hidden = false;
+      }
+    });
+  }
+  var logoutBtn = $('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function () {
+      if (window.confirm('¿Cerrar sesión?')) doLogout();
+    });
+  }
+
+  var comandaInput = $('comanda-input');
+  if (comandaInput) {
+    comandaInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); addComanda(comandaInput.value); }
+    });
+  }
+  var comandaHelp = $('comanda-help');
+  if (comandaHelp) {
+    comandaHelp.addEventListener('click', function () {
+      alert('Códigos de comanda:\n' +
+        'Bebida: ESP, AME, LAT, CAP, FLA, MOC, MAC, CHAI, CHOC, COL, ICE, FM, FC, MAT, MAN, TEN, MUS\n' +
+        'Tamaño (sufijo o token): CH/S, M, G/L\n' +
+        'Leche: E (entera), D (deslactosada), A (almendra), V (avena)\n' +
+        'Extras: CR (caramelo), CH (chocolate), VA (vainilla), SH (shot), CM (crema)\n' +
+        'Ejemplo: Cap-D-CR+Sh = Cappuccino, deslactosada, caramelo + shot');
+    });
+  }
+
+  /* ---------------- init ---------------- */
+
+  applySettings();
+  applyUserUI();
+  renderChips();
+  renderProducts();
+  renderCart();
+  window.__addComanda = function (val) { addComanda(val); };
+  window.__comandaHelp = function () {
+    alert('Códigos de comanda:\n' +
+      'Bebida: ESP, AME, LAT, CAP, FLA, MOC, MAC, CHAI, CHOC, COL, ICE, FM, FC, MAT, MAN, TEN, MUS\n' +
+      'Tamaño (sufijo o token): CH/S, M, G/L\n' +
+      'Leche: E (entera), D (deslactosada), A (almendra), V (avena)\n' +
+      'Extras: CR (caramelo), CH (chocolate), VA (vainilla), SH (shot), CM (crema)\n' +
+      'Ejemplo: Cap-D-CR+Sh = Cappuccino, deslactosada, caramelo + shot');
+  };
+  tick();
+  setInterval(tick, 15000);
+})();
