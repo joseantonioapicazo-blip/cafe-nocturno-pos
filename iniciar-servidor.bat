@@ -3,27 +3,34 @@ chcp 65001 >nul
 title Cafe Nocturno - servidor
 cd /d "%~dp0"
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo.
-  echo   No encontramos Node.js en esta computadora.
-  echo.
-  echo   Instalalo gratis desde https://nodejs.org  ^(boton verde LTS^)
-  echo   y despues vuelve a abrir este archivo.
-  echo.
-  pause
-  exit /b 1
-)
+rem Buscar Node.js: primero en el PATH y luego en las carpetas tipicas.
+set "NODE="
+for /f "delims=" %%G in ('where node 2^>nul') do if not defined NODE set "NODE=%%G"
+if not defined NODE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE=%ProgramFiles%\nodejs\node.exe"
+if not defined NODE if exist "%ProgramFiles(x86)%\nodejs\node.exe" set "NODE=%ProgramFiles(x86)%\nodejs\node.exe"
+if not defined NODE if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "NODE=%LOCALAPPDATA%\Programs\nodejs\node.exe"
+
+if not defined NODE goto sin_node
 
 echo.
 echo   Iniciando Cafe Nocturno...
-echo   Deja esta ventana abierta mientras usas el sistema.
+echo   El navegador se abrira solo. Deja esta ventana abierta.
 echo.
 
-start "" /min powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 2; Start-Process 'http://localhost:3000'"
+"%NODE%" server.js
+goto fin
 
-node server.js
+:sin_node
+echo.
+echo   No encontramos Node.js en esta computadora.
+echo   Se abrira la pagina de descarga: pulsa el boton verde LTS,
+echo   instala con "Siguiente" y vuelve a abrir este archivo.
+start "" "https://nodejs.org/es"
+echo.
+pause
+exit /b 1
 
+:fin
 echo.
 echo   El servidor se detuvo. Puedes cerrar esta ventana.
 pause
